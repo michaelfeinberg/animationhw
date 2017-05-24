@@ -73,7 +73,34 @@ void first_pass() {
   //they must be extern variables
   extern int num_frames;
   extern char name[128]; 
+  
+  int F,B,V;
+  F = 0;
+  B = 0;
+  V = 0;
 
+  int i;
+  for(i = 0;i<lastop;i++){
+    switch (op[i].opcode)
+      {
+      case FRAMES:
+	num_frames = op[i].op.frames.num_frames;
+	F = 1;
+      case BASENAME:
+	strcpy(name,op[i].op.basename.p->name);
+	B = 1;
+      case VARY:
+	V = 1;
+      }
+  }
+  if(!F && V){
+    printf("No frames\n");
+    exit(0);
+  }
+  if(F && !B){
+    strncpy(name,"base",4);
+    printf("Frames found, basename set to base\n");
+  }
   return;
 }
 
@@ -99,7 +126,38 @@ void first_pass() {
   jdyrlandweaver
   ====================*/
 struct vary_node ** second_pass() {
-  return NULL;
+  struct vary_node **knob;
+  struct vary_node *current_knob;
+  knob = (struct vary_node **)malloc(sizeof(struct vary_node **));
+  current_knob = (struct vary_node *)malloc(sizeof(struct vary_node *));
+  int i,j;
+  int knob_start, knob_end;
+  double val,start_val,end_val,incr;
+  for(i = 0; i<lastop;i++){
+    if(op[i].opcode==VARY){
+      knob_start = op[i].op.vary.start_frame;
+      knob_end = op[i].op.vary.end_frame;
+      if(knob_end < knob_start){
+	printf("End frame is before start frame...\n");
+	exit(0);
+      }
+      start_val= op[i].op.vary.start_val;
+      end_val = op[i].op.vary.end_val;
+      val = start_val;
+      incr = (end_val - start_val)/(knob_end - knob_start);
+      
+
+      for(j = knob_start; j <= knob_end; j++){
+	strcpy(current_knob->name,op[i].op.vary.p->name);
+	current_knob->value = val;
+	current_knob->next = knob[j];
+	knob[j] = current_knob;
+	val += incr;
+      }
+    }
+  }
+
+  return knob;
 }
 
 
