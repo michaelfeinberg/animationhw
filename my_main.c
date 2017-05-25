@@ -225,6 +225,7 @@ void my_main() {
   color g;
   double step = 0.1;
   double theta;
+  double knob_val;
   
   systems = new_stack();
   tmp = new_matrix(4, 1000);
@@ -232,10 +233,25 @@ void my_main() {
   g.red = 0;
   g.green = 0;
   g.blue = 0;
-
-  for (i=0;i<lastop;i++) {
-
-    printf("%d: ",i);
+  first_pass();
+  struct vary_node * knob;
+  struct vary_node ** knob_list = (struct vary_node **)malloc(sizeof(struct vary_node*)*num_frames);
+  if(num_frames>1){
+    knob_list = second_pass();
+  }
+  
+  int j;
+  for(j = 0; j < num_frames; j++){
+    if(num_frames>1){
+      for(knob = knob_list[j]; knob != NULL; knob->next){
+	set_value(lookup_symbol(knob->name),knob->value);
+      }
+    }
+    
+    
+    for (i=0;i<lastop;i++) {
+      
+      printf("%d: ",i);
       switch (op[i].opcode)
 	{
 	case SPHERE:
@@ -330,10 +346,11 @@ void my_main() {
 	  if (op[i].op.move.p != NULL)
 	    {
 	      printf("\tknob: %s",op[i].op.move.p->name);
+	      knob_val = op[i].op.move.p->s.value;
 	    }
-	  tmp = make_translate( op[i].op.move.d[0],
-				op[i].op.move.d[1],
-				op[i].op.move.d[2]);
+	  tmp = make_translate( op[i].op.move.d[0]*knob_val,
+				op[i].op.move.d[1]*knob_val,
+				op[i].op.move.d[2]*knob_val);
 	  matrix_mult(peek(systems), tmp);
 	  copy_matrix(tmp, peek(systems));
 	  tmp->lastcol = 0;
@@ -345,10 +362,11 @@ void my_main() {
 	  if (op[i].op.scale.p != NULL)
 	    {
 	      printf("\tknob: %s",op[i].op.scale.p->name);
+	      knob_val = op[i].op.move.p->s.value;
 	    }
-	  tmp = make_scale( op[i].op.scale.d[0],
-			    op[i].op.scale.d[1],
-			    op[i].op.scale.d[2]);
+	  tmp = make_scale( op[i].op.scale.d[0]*knob_val,
+			    op[i].op.scale.d[1]*knob_val,
+			    op[i].op.scale.d[2]*knob_val);
 	  matrix_mult(peek(systems), tmp);
 	  copy_matrix(tmp, peek(systems));
 	  tmp->lastcol = 0;
@@ -360,8 +378,9 @@ void my_main() {
 	  if (op[i].op.rotate.p != NULL)
 	    {
 	      printf("\tknob: %s",op[i].op.rotate.p->name);
+	      knob_val = op[i].op.move.p->s.value;
 	    }
-	  theta =  op[i].op.rotate.degrees * (M_PI / 180);
+	  theta =  op[i].op.rotate.degrees*knob_val * (M_PI / 180);
 	  if (op[i].op.rotate.axis == 0 )
 	    tmp = make_rotX( theta );
 	  else if (op[i].op.rotate.axis == 1 )
@@ -389,7 +408,18 @@ void my_main() {
 	  printf("Display");
 	  display(t);
 	  break;
-    }
+	}
       printf("\n");
     }
+    if(num_frames>1){
+      char temp [128];
+      sprintf(temp ,"anim/%s%03d.png",name,j);
+      save_extension(t,temp);
+      clear_screen(t);
+      free_stack(systems);
+      tmp ->lastcol = 0;
+      systems = new_stack();
+    } 
+  }
+  make_animation(name);
 }
