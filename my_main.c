@@ -86,11 +86,14 @@ void first_pass() {
       case FRAMES:
 	num_frames = op[i].op.frames.num_frames;
 	F = 1;
+	break;
       case BASENAME:
 	strcpy(name,op[i].op.basename.p->name);
 	B = 1;
+	break;
       case VARY:
 	V = 1;
+	break;
       }
   }
   if(!F && V){
@@ -128,14 +131,13 @@ void first_pass() {
 struct vary_node ** second_pass() {
   struct vary_node **knob;
   struct vary_node *current_knob;
-  knob = (struct vary_node **)malloc(sizeof(struct vary_node **));
-  current_knob = (struct vary_node *)malloc(sizeof(struct vary_node *));
+  knob = (struct vary_node **)malloc(sizeof(struct vary_node *)*num_frames);
   int i,j;
   int knob_start, knob_end;
   double val,start_val,end_val,incr;
   for(i = 0; i<lastop;i++){
     if(op[i].opcode==VARY){
-      knob_start = op[i].op.vary.start_frame;
+      knob_start = op[i].op.vary.start_frame;   
       knob_end = op[i].op.vary.end_frame;
       if(knob_end < knob_start){
 	printf("End frame is before start frame...\n");
@@ -148,6 +150,7 @@ struct vary_node ** second_pass() {
       
 
       for(j = knob_start; j <= knob_end; j++){
+	current_knob = (struct vary_node *)malloc(sizeof(struct vary_node));
 	strcpy(current_knob->name,op[i].op.vary.p->name);
 	current_knob->value = val;
 	current_knob->next = knob[j];
@@ -226,28 +229,31 @@ void my_main() {
   double step = 0.1;
   double theta;
   double knob_val;
-  
   systems = new_stack();
   tmp = new_matrix(4, 1000);
   clear_screen( t );
   g.red = 0;
   g.green = 0;
   g.blue = 0;
+  //printf("running first pass\n");
   first_pass();
+  //printf("ran first pass\n");
   struct vary_node * knob;
   struct vary_node ** knob_list = (struct vary_node **)malloc(sizeof(struct vary_node*)*num_frames);
   if(num_frames>1){
+    //printf("running second pass\n");
     knob_list = second_pass();
+    //printf("ran second pass\n");
   }
-  
+  print_knobs();
   int j;
   for(j = 0; j < num_frames; j++){
     if(num_frames>1){
-      for(knob = knob_list[j]; knob != NULL; knob->next){
+      for(knob = knob_list[j]; knob != NULL; knob = knob->next){
 	set_value(lookup_symbol(knob->name),knob->value);
       }
     }
-    
+    printf("set knob values\n");
     
     for (i=0;i<lastop;i++) {
       
@@ -363,13 +369,17 @@ void my_main() {
 	    {
 	      printf("\tknob: %s",op[i].op.scale.p->name);
 	      knob_val = op[i].op.move.p->s.value;
+	      printf("\tset knob");
 	    }
 	  tmp = make_scale( op[i].op.scale.d[0]*knob_val,
 			    op[i].op.scale.d[1]*knob_val,
 			    op[i].op.scale.d[2]*knob_val);
+	  printf("\tset tmp");
 	  matrix_mult(peek(systems), tmp);
+	  
 	  copy_matrix(tmp, peek(systems));
 	  tmp->lastcol = 0;
+	  printf("finished scale");
 	  break;
 	case ROTATE:
 	  printf("Rotate: axis: %6.2f degrees: %6.2f",
@@ -408,10 +418,18 @@ void my_main() {
 	  printf("Display");
 	  display(t);
 	  break;
+	case SET:
+	  set_value(lookup_symbol(op[i].op.set.p -> name), op[i].op.set.val);
+	  break;
+	case SETKNOBS:
+	  for (j = 0; j < lastsym; j++)
+	    set_value(&symtab[i],op[i].op.setknobs.value);
+	  break;
 	}
       printf("\n");
     }
     if(num_frames>1){
+      printf("reaches animation\n");
       char temp [128];
       sprintf(temp ,"anim/%s%03d.png",name,j);
       save_extension(t,temp);
